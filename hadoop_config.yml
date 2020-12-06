@@ -1,0 +1,118 @@
+---
+- hosts: all
+  tasks:    
+  - name: Copy JDK Software 
+    copy:
+      src: jdk-8u171-linux-x64.rpm
+      dest: /root
+
+  - name: Copy Hadoop Software
+    copy:
+      src: hadoop-1.2.1-1.x86_64.rpm
+      dest: /root
+
+  - name: Install jdk Software
+    dnf: 
+      name: /root/jdk-8u171-linux-x64.rpm 
+      state: present
+      disable_gpg_check: yes
+
+  - name: Check hadoop is installed or not
+    package_facts:
+      manager: "rpm"
+
+
+  - name: Install hadoop Software
+    command:
+      cmd: rpm -i /root/hadoop-1.2.1-1.x86_64.rpm --force
+    when: "'hadoop' not in ansible_facts.packages"
+
+
+- hosts: namenode
+  vars_prompt:
+  - name: name_dir
+    private: no
+    prompt: "Enter namenode directory"
+  tasks:
+  - name: Create directory for namenode
+    file:
+      path: "{{ name_dir }}"
+      state: directory
+
+  - name: Configure hdfs-site.xml file in namenode
+    blockinfile:
+      path: /etc/hadoop/hdfs-site.xml
+      insertafter: "<configuration>"
+      block: |
+              <property>
+              <name>dfs.name.dir</name>
+              <value>{{ name_dir }}</value>
+              </property>
+
+  - name: Configure core-site.xml file in namenode
+    blockinfile:
+       path: /etc/hadoop/core-site.xml
+       insertafter: "<configuration>"
+       block: |
+               <property>
+               <name>fs.default.name</name>
+               <value>hdfs://{{ groups['namenode'][0] }}:9001</value>
+               </property>
+
+  - name: Check JPS Process Status for Namenode
+    command: jps
+    register: x
+
+  - name: Format Namenode 
+    shell: echo Y | hadoop namenode -format 
+    when: "'NameNode' not in x['stdout']"
+
+  - name: Clean cache
+    command: echo 3 > /proc/sys/vm/drop_caches
+
+  - name: Start Namenode service
+    command: hadoop-daemon.sh start namenode
+    when: "'NameNode' not in x['stdout']"
+
+- hosts: datanode
+  vars_prompt:
+  - name: data_dir
+    private: no
+    prompt: "Enter datanode directory"
+  tasks:
+  - name: Create file for Datanode
+    file:
+      path: "{{ data_dir }}"
+      state: directory
+
+  - name: Configure hdfs-site.xml in Datanode
+    blockinfile:
+      path: /etc/hadoop/hdfs-site.xml
+      insertafter: "<configuration>"
+      block: |
+              <property>
+              <name>dfs.data.dir</name>
+              <value>{{ data_dir }}</value>
+              </property>
+
+  - name: Configure core-site.xml file in Datanode
+    blockinfile:
+       path: /etc/hadoop/core-site.xml
+       insertafter: "<configuration>"
+       block: |
+               <property>
+               <name>fs.default.name</name>
+               <value>hdfs://{{ groups['namenode'][0] }}:9001</value>
+               </property>
+
+  - name: Check JPS Process Status for Datanode
+    command: jps
+    register: x
+
+  - name: Clean cache
+    command: echo 3 > /proc/sys/vm/drop_caches
+
+  - name: Start Namenode service
+    command: hadoop-daemon.sh start datanode
+    when: "'DataNode' not in x['stdout']"
+
