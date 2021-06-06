@@ -1,5 +1,4 @@
-# Hadoop_Configuration_Ansible
-Task Description📄
-<br>
-<br>
-🔰 11.1 Configure Hadoop and start cluster services using Ansible Playbook
+Hadoop_Configuration_Ansible
+=========
+
+This repo contains the playbook to configure Hadoop HDFS and start cluster services using Ansible Playbook
